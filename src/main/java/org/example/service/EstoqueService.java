@@ -3,8 +3,8 @@ package org.example.service;
 import org.example.model.Produto;
 import org.example.model.TipoProduto;
 import org.example.repository.ProdutoRepo;
+import java.util.List;
 
-import java.util.ArrayList;
 
 public class EstoqueService {
 
@@ -47,8 +47,8 @@ public class EstoqueService {
         System.out.println("Preço atualizado.");
     }
 
-    public ArrayList<Produto> listarTodos()                    { return repo.buscarTodos(); }
-    public ArrayList<Produto> listarPorTipo(TipoProduto tipo)  { return repo.buscarPorTipo(tipo); }
+    public List<Produto> listarTodos() { return repo.buscarTodos(); }
+    public List<Produto> listarPorTipo(TipoProduto tipo) { return repo.buscarPorTipo(tipo); }
     public Produto buscarPorId(int id)                         { return repo.buscarPorId(id); }
 
     public Produto buscarPorNome(String nome) {

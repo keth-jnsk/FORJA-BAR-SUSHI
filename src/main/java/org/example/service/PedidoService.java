@@ -23,7 +23,7 @@ public class PedidoService {
 
     public boolean adicionarItem(Pedido pedido, Produto produto, int quantidade) {
         pedido.adicionarItem(produto, quantidade);
-        return false;
+        return true;
     }
 
     public boolean confirmarPedido(Pedido pedido) {
@@ -38,6 +38,13 @@ public class PedidoService {
                 System.out.println("Estoque insuficiente: " + item.getProduto().getNome());
                 return false;
             }
+        }
+
+        double total = pedido.calcularTotal();
+        if (total > 100.0) {
+            double desconto = total * 0.10;
+            System.out.printf("Desconto de 10%% aplicado! De R$ %.2f por R$ %.2f%n",
+                    total, total - desconto);
         }
 
         pedidoRepo.salvar(pedido);

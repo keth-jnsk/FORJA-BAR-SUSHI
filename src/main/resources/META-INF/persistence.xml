@@ -7,6 +7,7 @@
         <class>org.example.model.Pedido</class>
         <class>org.example.model.ItemPedido</class>
         <class>org.example.model.Ficha</class>
+        <class>org.example.model.Usuario</class>
 
         <properties>
             <property name="jakarta.persistence.jdbc.url"

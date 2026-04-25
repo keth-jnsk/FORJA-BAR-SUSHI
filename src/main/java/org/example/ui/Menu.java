@@ -3,8 +3,8 @@ package org.example.ui;
 import org.example.model.*;
 import org.example.repository.FichaRepository;
 import org.example.service.*;
-
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class Menu {
@@ -12,12 +12,14 @@ public class Menu {
     private EstoqueService estoqueService;
     private PedidoService pedidoService;
     private FichaService fichaService;
+    private RelatorioService relatorioService;
     private Scanner scanner;
 
     public Menu(EstoqueService estoqueService) {
         this.estoqueService = estoqueService;
         this.pedidoService = new PedidoService(estoqueService);
         this.fichaService = new FichaService(new FichaRepository(), pedidoService);
+        this.relatorioService = new RelatorioService(pedidoService);
         this.scanner = new Scanner(System.in);
     }
 
@@ -34,21 +36,27 @@ public class Menu {
             System.out.println("7. Alerta estoque baixo");
             System.out.println("\n--- PEDIDOS ---");
             System.out.println("8. Iniciar atendimento (Novo Pedido)");
+            System.out.println("9. Ver fichas abertas");
+            System.out.println("10. Fechar ficha");
+            System.out.println("11. Relatório do dia");
             System.out.println("0. Sair");
             System.out.print("Escolha: ");
 
             opcao = lerInt();
 
             switch (opcao) {
-                case 1 -> cadastrarProduto();
-                case 2 -> listarProdutos();
-                case 3 -> buscarProduto();
-                case 4 -> removerProduto();
-                case 5 -> atualizarEstoque();
-                case 6 -> atualizarPreco();
-                case 7 -> alertarEstoqueBaixo();
-                case 8 -> fluxoPedidoCompleto();
-                case 0 -> System.out.println("Encerrando...");
+                case 1  -> cadastrarProduto();
+                case 2  -> listarProdutos();
+                case 3  -> buscarProduto();
+                case 4  -> removerProduto();
+                case 5  -> atualizarEstoque();
+                case 6  -> atualizarPreco();
+                case 7  -> alertarEstoqueBaixo();
+                case 8  -> fluxoPedidoCompleto();
+                case 9  -> verFichasAbertas();
+                case 10 -> fecharFicha();
+                case 11 -> relatorio();
+                case 0  -> System.out.println("Encerrando...");
                 default -> System.out.println("Opção inválida.");
             }
         }
@@ -63,6 +71,10 @@ public class Menu {
             int idProduto = lerInt();
             Produto produto = estoqueService.buscarPorId(idProduto);
             if (produto == null) { System.out.println("Produto não encontrado."); continue; }
+            if (produto.getQuantidade() == 0) {
+                System.out.println("Produto sem estoque: " + produto.getNome());
+                continue;
+            }
             System.out.print("Quantidade: ");
             int qtd = lerInt();
             boolean ok = pedidoService.adicionarItem(pedido, produto, qtd);
@@ -79,13 +91,14 @@ public class Menu {
     }
 
     private void mostrarCardapio() {
-        ArrayList<Produto> produtos = estoqueService.listarTodos();
+        List<Produto> produtos = estoqueService.listarTodos();
         System.out.println("\n========== CARDÁPIO ==========");
         System.out.printf("%-40s | %-40s%n", "COMIDAS", "BEBIDAS");
         System.out.println("--------------------------------------------------------------------------");
         ArrayList<Produto> comidas = new ArrayList<>();
         ArrayList<Produto> bebidas = new ArrayList<>();
         for (Produto p : produtos) {
+            if (p.getQuantidade() == 0) continue; // bloqueio produto sem estoque
             if (p.getTipo() == TipoProduto.COMIDAS) comidas.add(p);
             else bebidas.add(p);
         }
@@ -128,7 +141,7 @@ public class Menu {
     }
 
     private void listarProdutos() {
-        ArrayList<Produto> lista = estoqueService.listarTodos();
+        List<Produto> lista = estoqueService.listarTodos();
         if (lista.isEmpty()) { System.out.println("Nenhum produto cadastrado."); return; }
         System.out.println("\n--- Produtos ---");
         for (Produto p : lista) System.out.println(p);
@@ -193,6 +206,32 @@ public class Menu {
     private void alertarEstoqueBaixo() {
         int minimo = lerInt("Quantidade mínima para alerta: ");
         estoqueService.alertarEstoqueBaixo(minimo);
+    }
+
+    private void verFichasAbertas() {
+        fichaService.exibirFichasAbertas();
+    }
+
+    private void fecharFicha() {
+        List<Ficha> abertas = fichaService.listarAbertas();
+        if (abertas.isEmpty()) {
+            System.out.println("Nenhuma ficha aberta.");
+            return;
+        }
+        System.out.println("\n=== FICHAS ABERTAS ===");
+        for (Ficha f : abertas) System.out.println(f);
+        System.out.print("\nDigite os primeiros 8 caracteres da ficha: ");
+        String idParcial = scanner.nextLine();
+        Ficha ficha = abertas.stream()
+                .filter(f -> f.getId().toString().startsWith(idParcial))
+                .findFirst()
+                .orElse(null);
+        if (ficha == null) { System.out.println("Ficha não encontrada."); return; }
+        fichaService.fecharFicha(ficha.getId());
+    }
+
+    private void relatorio() {
+        relatorioService.gerarRelatorioDoDia();
     }
 
     private int lerInt() {

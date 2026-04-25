@@ -49,4 +49,12 @@ public class Ficha {
     public UUID getId() { return id; }
     public Pedido getPedido() { return pedido; }
     public boolean isUsada() { return usada; }
+
+    @Override
+    public String toString() {
+        return String.format("Ficha [%s] | Pedido #%d | Status: %s",
+                id.toString().substring(0, 8),
+                pedido.getId(),
+                usada ? "FECHADA" : "ABERTA");
+    }
 }
