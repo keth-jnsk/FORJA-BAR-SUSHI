@@ -1,68 +1,111 @@
 package org.example.repository;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.Persistence;
 import org.example.model.Produto;
 import org.example.model.TipoProduto;
+import org.example.util.JpaUtil;
 
 import java.util.List;
 
 public class ProdutoRepo {
 
-    private EntityManager em;
-
-    public ProdutoRepo() {
-        em = Persistence.createEntityManagerFactory("meuPU").createEntityManager();
-    }
-
-    public void salvar(Produto p) {
-        em.getTransaction().begin();
-        em.persist(p);
-        em.getTransaction().commit();
-        System.out.println("Produto '" + p.getNome() + "' salvo.");
+    public void salvar(Produto produto) {
+        EntityManager em = JpaUtil.getEntityManager();
+        try {
+            em.getTransaction().begin();
+            em.persist(produto);
+            em.getTransaction().commit();
+        } catch (RuntimeException e) {
+            rollbackSeAtivo(em);
+            throw e;
+        } finally {
+            em.close();
+        }
     }
 
     public List<Produto> buscarTodos() {
-        return em.createQuery(
-                "SELECT p FROM Produto p WHERE p.ativo = true", Produto.class
-        ).getResultList();
+        EntityManager em = JpaUtil.getEntityManager();
+        try {
+            return em.createQuery(
+                    "SELECT p FROM Produto p WHERE p.ativo = true ORDER BY p.id ASC", Produto.class
+            ).getResultList();
+        } finally {
+            em.close();
+        }
     }
 
     public Produto buscarPorId(int id) {
-        Produto p = em.find(Produto.class, id);
-        if (p != null && !p.isAtivo()) return null;
-        return p;
+        EntityManager em = JpaUtil.getEntityManager();
+        try {
+            Produto produto = em.find(Produto.class, id);
+            return (produto != null && produto.isAtivo()) ? produto : null;
+        } finally {
+            em.close();
+        }
     }
 
     public Produto buscarPorNome(String nome) {
-        List<Produto> result = em.createQuery(
-                "SELECT p FROM Produto p WHERE LOWER(p.nome) = LOWER(:nome) AND p.ativo = true",
-                Produto.class
-        ).setParameter("nome", nome).getResultList();
-        return result.isEmpty() ? null : result.get(0);
+        EntityManager em = JpaUtil.getEntityManager();
+        try {
+            List<Produto> resultado = em.createQuery(
+                    "SELECT p FROM Produto p WHERE LOWER(p.nome) = LOWER(:nome) AND p.ativo = true",
+                    Produto.class
+            ).setParameter("nome", nome).getResultList();
+            return resultado.isEmpty() ? null : resultado.get(0);
+        } finally {
+            em.close();
+        }
     }
 
     public List<Produto> buscarPorTipo(TipoProduto tipo) {
-        return em.createQuery(
-                "SELECT p FROM Produto p WHERE p.tipo = :tipo AND p.ativo = true",
-                Produto.class
-        ).setParameter("tipo", tipo).getResultList();
+        EntityManager em = JpaUtil.getEntityManager();
+        try {
+            return em.createQuery(
+                    "SELECT p FROM Produto p WHERE p.tipo = :tipo AND p.ativo = true",
+                    Produto.class
+            ).setParameter("tipo", tipo).getResultList();
+        } finally {
+            em.close();
+        }
     }
 
-    public boolean atualizar(Produto p) {
-        em.getTransaction().begin();
-        em.merge(p);
-        em.getTransaction().commit();
-        return true;
+    public void atualizar(Produto produto) {
+        EntityManager em = JpaUtil.getEntityManager();
+        try {
+            em.getTransaction().begin();
+            em.merge(produto);
+            em.getTransaction().commit();
+        } catch (RuntimeException e) {
+            rollbackSeAtivo(em);
+            throw e;
+        } finally {
+            em.close();
+        }
     }
 
     public boolean deletar(int id) {
-        Produto p = em.find(Produto.class, id);
-        if (p == null) return false;
-        em.getTransaction().begin();
-        p.setAtivo(false);
-        em.merge(p);
-        em.getTransaction().commit();
-        return true;
+        EntityManager em = JpaUtil.getEntityManager();
+        try {
+            Produto produto = em.find(Produto.class, id);
+            if (produto == null) {
+                return false;
+            }
+            em.getTransaction().begin();
+            produto.desativar();
+            em.merge(produto);
+            em.getTransaction().commit();
+            return true;
+        } catch (RuntimeException e) {
+            rollbackSeAtivo(em);
+            throw e;
+        } finally {
+            em.close();
+        }
+    }
+
+    private void rollbackSeAtivo(EntityManager em) {
+        if (em.getTransaction().isActive()) {
+            em.getTransaction().rollback();
+        }
     }
 }
