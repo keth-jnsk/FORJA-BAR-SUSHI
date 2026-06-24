@@ -3,7 +3,7 @@ package org.example.model;
 import jakarta.persistence.*;
 
 @Entity
-@Table
+@Table(name = "itens_pedido")
 public class ItemPedido {
 
     @Id
@@ -11,44 +11,51 @@ public class ItemPedido {
     private int id;
 
     @ManyToOne
-    @JoinColumn
+    @JoinColumn(name = "pedido_id")
     private Pedido pedido;
 
     @ManyToOne
-    @JoinColumn
+    @JoinColumn(name = "produto_id")
     private Produto produto;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "quantidade")
     private int quantidadePedida;
 
-    public ItemPedido() {}
+    @Column(nullable = false)
+    private double subtotal;
 
-    public ItemPedido(Produto produto, int quantidadePedida) {
-        this.produto = produto;
-        this.quantidadePedida = quantidadePedida;
+    protected ItemPedido() {
+        // exigido pelo JPA
     }
 
-    public void setPedido(Pedido pedido) {
+    public ItemPedido(Produto produto, int quantidadePedida) {
+        if (produto == null) {
+            throw new IllegalArgumentException("O produto do item não pode ser nulo.");
+        }
+        if (quantidadePedida <= 0) {
+            throw new IllegalArgumentException("A quantidade pedida deve ser maior que zero.");
+        }
+        this.produto = produto;
+        this.quantidadePedida = quantidadePedida;
+        this.subtotal = produto.getPreco() * quantidadePedida;
+    }
+
+    void setPedido(Pedido pedido) {
         this.pedido = pedido;
     }
 
-    public Produto getProduto() {
-        return produto;
-    }
+    public Pedido getPedido() { return pedido; }
+    public Produto getProduto() { return produto; }
+    public int getQuantidadePedida() { return quantidadePedida; }
 
-    public int getQuantidadePedida() {
-        return quantidadePedida;
-    }
-
+    /** Subtotal calculado e congelado no momento em que o item foi adicionado ao pedido. */
     public double calcularSubtotal() {
-        return produto.getPreco() * quantidadePedida;
+        return subtotal;
     }
 
     @Override
     public String toString() {
         return String.format("%dx %s — R$ %.2f",
-                quantidadePedida,
-                produto.getNome(),
-                calcularSubtotal());
+                quantidadePedida, produto.getNome(), calcularSubtotal());
     }
 }

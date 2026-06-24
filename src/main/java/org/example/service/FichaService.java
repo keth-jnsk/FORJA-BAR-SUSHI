@@ -3,9 +3,9 @@ package org.example.service;
 import org.example.model.Ficha;
 import org.example.model.Pedido;
 import org.example.repository.FichaRepository;
+import org.example.util.ResultadoOperacao;
 
 import java.util.List;
-import java.util.UUID;
 
 public class FichaService {
 
@@ -18,70 +18,72 @@ public class FichaService {
     }
 
     public Ficha abrirFicha(int pedidoId) {
-
         Pedido pedido = pedidoService.buscarPorId(pedidoId);
 
         if (pedido == null) {
-            System.out.println("Pedido #" + pedidoId + " não encontrado.");
-            return null;
+            throw new IllegalArgumentException("Pedido #" + pedidoId + " não encontrado.");
         }
-
         if (pedido.getStatus() == Pedido.StatusPedido.CANCELADO
                 || pedido.getStatus() == Pedido.StatusPedido.ENTREGUE) {
-
-            System.out.println("Não é possível abrir ficha para pedido " + pedido.getStatus());
-            return null;
+            throw new IllegalStateException(
+                    "Não é possível abrir ficha para um pedido " + pedido.getStatus() + ".");
         }
 
-        // ✅ AGORA CORRETO (usa objeto, não ID)
         Ficha ficha = new Ficha(pedido);
-
         fichaRepository.salvar(ficha);
-
-        System.out.println("Ficha aberta: [" +
-                ficha.getId().toString().substring(0, 8) +
-                "] → Pedido #" + pedido.getId());
-
         return ficha;
     }
 
-    public boolean fecharFicha(UUID fichaId) {
-
+    /**
+     * Fecha a ficha: calcula o total (a regra de cálculo e o impedimento de
+     * fechamento duplicado ficam encapsulados na própria entidade Ficha),
+     * persiste o resultado e também salva o pedido (que passa a ENTREGUE).
+     */
+    public ResultadoOperacao fecharFicha(String fichaId) {
         Ficha ficha = fichaRepository.buscarPorId(fichaId);
-
         if (ficha == null) {
-            System.out.println("Ficha não encontrada.");
-            return false;
+            return ResultadoOperacao.erro("Ficha não encontrada.");
         }
 
-        if (!ficha.isAberta()) {
-            System.out.println("Ficha já está fechada.");
-            return false;
+        try {
+            ficha.fechar(); // já chama pedido.finalizarAtendimento() internamente
+            fichaRepository.atualizar(ficha);
+            pedidoService.atualizar(ficha.getPedido());
+            return ResultadoOperacao.sucesso(
+                    String.format("Ficha fechada! Total cobrado: R$ %.2f.", ficha.getValorTotalFechamento()));
+        } catch (IllegalStateException e) {
+            return ResultadoOperacao.erro(e.getMessage());
         }
+    }
 
-        // ✅ AGORA CORRETO
-        Pedido pedido = ficha.getPedido();
-
-        if (pedido != null) {
-
-            Pedido.StatusPedido s = pedido.getStatus();
-
-            if (s == Pedido.StatusPedido.ABERTO || s == Pedido.StatusPedido.EM_PREPARO) {
-                System.out.printf("ATENÇÃO: Pedido #%d ainda está %s%n",
-                        pedido.getId(), s);
-            }
-
-            System.out.printf("TOTAL DA FICHA: R$ %.2f (Pedido #%d)%n",
-                    pedido.calcularTotal(), pedido.getId());
+    /** Ação do funcionário: marca que a cozinha começou a preparar o pedido da ficha. */
+    public ResultadoOperacao iniciarPreparo(String fichaId) {
+        Ficha ficha = fichaRepository.buscarPorId(fichaId);
+        if (ficha == null) {
+            return ResultadoOperacao.erro("Ficha não encontrada.");
         }
-
-        boolean ok = fichaRepository.marcarUsada(fichaId);
-
-        if (ok) {
-            System.out.println("Ficha fechada!");
+        try {
+            ficha.getPedido().iniciarPreparo();
+            pedidoService.atualizar(ficha.getPedido());
+            return ResultadoOperacao.sucesso("Pedido da Mesa " + ficha.getPedido().getNumeroMesa() + " marcado como Em Preparo.");
+        } catch (IllegalStateException e) {
+            return ResultadoOperacao.erro(e.getMessage());
         }
+    }
 
-        return ok;
+    /** Ação do funcionário: marca que o pedido da ficha está pronto para entrega. */
+    public ResultadoOperacao marcarComoPronto(String fichaId) {
+        Ficha ficha = fichaRepository.buscarPorId(fichaId);
+        if (ficha == null) {
+            return ResultadoOperacao.erro("Ficha não encontrada.");
+        }
+        try {
+            ficha.getPedido().marcarComoPronto();
+            pedidoService.atualizar(ficha.getPedido());
+            return ResultadoOperacao.sucesso("Pedido da Mesa " + ficha.getPedido().getNumeroMesa() + " marcado como Pronto.");
+        } catch (IllegalStateException e) {
+            return ResultadoOperacao.erro(e.getMessage());
+        }
     }
 
     public List<Ficha> listarAbertas() {
@@ -92,19 +94,7 @@ public class FichaService {
         return fichaRepository.listarTodas();
     }
 
-    public void exibirFichasAbertas() {
-
-        List<Ficha> abertas = listarAbertas();
-
-        if (abertas.isEmpty()) {
-            System.out.println("Nenhuma ficha aberta.");
-            return;
-        }
-
-        System.out.println("═══════ FICHAS ABERTAS ═══════");
-
-        for (Ficha f : abertas) {
-            System.out.println(f);
-        }
+    public Ficha buscarPorId(String id) {
+        return fichaRepository.buscarPorId(id);
     }
 }
