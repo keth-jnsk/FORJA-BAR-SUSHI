@@ -55,7 +55,7 @@ public class MainFrame extends JFrame {
         topo.setLayout(new BoxLayout(topo, BoxLayout.Y_AXIS));
         topo.setOpaque(false);
         topo.setBorder(BorderFactory.createEmptyBorder(24, 0, 18, 0));
-        JPanel logo = ComponentesUi.criarLogo(36);
+        JPanel logo = ComponentesUi.criarLogo(170);
         logo.setAlignmentX(Component.CENTER_ALIGNMENT);
         topo.add(logo);
         topo.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -76,7 +76,7 @@ public class MainFrame extends JFrame {
         navegacao.add(itemNavegacao("Estoque", ComponentesUi.ROSA_CLARO, e -> new ProdutoFrame().setVisible(true)));
         navegacao.add(itemNavegacao("Novo Produto", ComponentesUi.ROSA_FUCSIA, e -> new EstoqueFrame().setVisible(true)));
         navegacao.add(itemNavegacao("Relatórios", ComponentesUi.ROSA_SALMAO, e -> new RelatorioFrame().setVisible(true)));
-        navegacao.add(itemNavegacao("Usuários", ComponentesUi.ROSA_MAGENTA, e -> new CadastroUsuarioFrame().setVisible(true)));
+        navegacao.add(itemNavegacao("Usuários", ComponentesUi.ROSA_MAGENTA, e -> new UsuarioListaFrame(usuarioLogado).setVisible(true)));
 
         JPanel rodapeSidebar = new JPanel();
         rodapeSidebar.setLayout(new BoxLayout(rodapeSidebar, BoxLayout.Y_AXIS));

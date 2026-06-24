@@ -4,6 +4,7 @@ import org.example.controller.PedidoController;
 import org.example.model.Produto;
 import org.example.util.AppContext;
 import org.example.util.ResultadoOperacao;
+import org.example.util.ErroUtil;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -147,7 +148,13 @@ public class PedidoFrame extends JFrame {
 
     private void carregarCardapio() {
         modeloCardapio.setRowCount(0);
-        List<Produto> cardapio = pedidoController.listarCardapioDisponivel();
+        List<Produto> cardapio;
+        try {
+            cardapio = pedidoController.listarCardapioDisponivel();
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao carregar cardápio: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         for (Produto produto : cardapio) {
             modeloCardapio.addRow(new Object[]{
                     produto.getId(), produto.getNome(),
@@ -167,20 +174,24 @@ public class PedidoFrame extends JFrame {
         String nomeProduto = (String) modeloCardapio.getValueAt(linhaSelecionada, 1);
         int quantidade = (int) spinnerQuantidade.getValue();
 
-        ResultadoOperacao resultado = pedidoController.adicionarItem(idProduto, quantidade);
+        try {
+            ResultadoOperacao resultado = pedidoController.adicionarItem(idProduto, quantidade);
 
-        if (!resultado.isSucesso()) {
-            JOptionPane.showMessageDialog(this, resultado.getMensagem(), "Não foi possível adicionar", JOptionPane.WARNING_MESSAGE);
-            return;
+            if (!resultado.isSucesso()) {
+                JOptionPane.showMessageDialog(this, resultado.getMensagem(), "Não foi possível adicionar", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Produto produto = pedidoController.getPedidoEmAndamento().getItens().get(
+                    pedidoController.getPedidoEmAndamento().getItens().size() - 1).getProduto();
+            double subtotal = produto.getPreco() * quantidade;
+            modeloItensPedido.addRow(new Object[]{nomeProduto, quantidade, String.format("R$ %.2f", subtotal)});
+
+            atualizarRotuloTotal();
+            carregarCardapio();
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao adicionar item: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
         }
-
-        Produto produto = pedidoController.getPedidoEmAndamento().getItens().get(
-                pedidoController.getPedidoEmAndamento().getItens().size() - 1).getProduto();
-        double subtotal = produto.getPreco() * quantidade;
-        modeloItensPedido.addRow(new Object[]{nomeProduto, quantidade, String.format("R$ %.2f", subtotal)});
-
-        atualizarRotuloTotal();
-        carregarCardapio();
     }
 
     private void atualizarRotuloTotal() {
@@ -205,14 +216,18 @@ public class PedidoFrame extends JFrame {
             return;
         }
 
-        ResultadoOperacao resultado = pedidoController.confirmarPedidoEAbrirFicha();
+        try {
+            ResultadoOperacao resultado = pedidoController.confirmarPedidoEAbrirFicha();
 
-        if (!resultado.isSucesso()) {
-            JOptionPane.showMessageDialog(this, resultado.getMensagem(), "Não foi possível confirmar", JOptionPane.WARNING_MESSAGE);
-            return;
+            if (!resultado.isSucesso()) {
+                JOptionPane.showMessageDialog(this, resultado.getMensagem(), "Não foi possível confirmar", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            JOptionPane.showMessageDialog(this, resultado.getMensagem());
+            dispose();
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao confirmar pedido: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
         }
-
-        JOptionPane.showMessageDialog(this, resultado.getMensagem());
-        dispose();
     }
 }

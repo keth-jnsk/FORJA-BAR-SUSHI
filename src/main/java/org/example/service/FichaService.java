@@ -6,7 +6,6 @@ import org.example.repository.FichaRepository;
 import org.example.util.ResultadoOperacao;
 
 import java.util.List;
-import java.util.UUID;
 
 public class FichaService {
 
@@ -38,19 +37,50 @@ public class FichaService {
     /**
      * Fecha a ficha: calcula o total (a regra de cálculo e o impedimento de
      * fechamento duplicado ficam encapsulados na própria entidade Ficha),
-     * e persiste o resultado.
+     * persiste o resultado e também salva o pedido (que passa a ENTREGUE).
      */
-    public ResultadoOperacao fecharFicha(UUID fichaId) {
+    public ResultadoOperacao fecharFicha(String fichaId) {
         Ficha ficha = fichaRepository.buscarPorId(fichaId);
         if (ficha == null) {
             return ResultadoOperacao.erro("Ficha não encontrada.");
         }
 
         try {
-            ficha.fechar();
+            ficha.fechar(); // já chama pedido.finalizarAtendimento() internamente
             fichaRepository.atualizar(ficha);
+            pedidoService.atualizar(ficha.getPedido());
             return ResultadoOperacao.sucesso(
                     String.format("Ficha fechada! Total cobrado: R$ %.2f.", ficha.getValorTotalFechamento()));
+        } catch (IllegalStateException e) {
+            return ResultadoOperacao.erro(e.getMessage());
+        }
+    }
+
+    /** Ação do funcionário: marca que a cozinha começou a preparar o pedido da ficha. */
+    public ResultadoOperacao iniciarPreparo(String fichaId) {
+        Ficha ficha = fichaRepository.buscarPorId(fichaId);
+        if (ficha == null) {
+            return ResultadoOperacao.erro("Ficha não encontrada.");
+        }
+        try {
+            ficha.getPedido().iniciarPreparo();
+            pedidoService.atualizar(ficha.getPedido());
+            return ResultadoOperacao.sucesso("Pedido da Mesa " + ficha.getPedido().getNumeroMesa() + " marcado como Em Preparo.");
+        } catch (IllegalStateException e) {
+            return ResultadoOperacao.erro(e.getMessage());
+        }
+    }
+
+    /** Ação do funcionário: marca que o pedido da ficha está pronto para entrega. */
+    public ResultadoOperacao marcarComoPronto(String fichaId) {
+        Ficha ficha = fichaRepository.buscarPorId(fichaId);
+        if (ficha == null) {
+            return ResultadoOperacao.erro("Ficha não encontrada.");
+        }
+        try {
+            ficha.getPedido().marcarComoPronto();
+            pedidoService.atualizar(ficha.getPedido());
+            return ResultadoOperacao.sucesso("Pedido da Mesa " + ficha.getPedido().getNumeroMesa() + " marcado como Pronto.");
         } catch (IllegalStateException e) {
             return ResultadoOperacao.erro(e.getMessage());
         }
@@ -64,7 +94,7 @@ public class FichaService {
         return fichaRepository.listarTodas();
     }
 
-    public Ficha buscarPorId(UUID id) {
+    public Ficha buscarPorId(String id) {
         return fichaRepository.buscarPorId(id);
     }
 }

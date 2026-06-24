@@ -5,16 +5,22 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table
+@Table(name = "fichas")
 public class Ficha {
 
     public enum StatusFicha {
         ABERTA, FECHADA
     }
 
+    // A coluna no banco é VARCHAR(36) (não um tipo nativo "uuid" do Postgres).
+    // Mapear esse campo como java.util.UUID faz o Hibernate, dependendo da
+    // versão/driver, tentar tratar o valor lido como UUID nativo e falhar
+    // com ClassCastException ("Cannot cast java.lang.String to java.util.UUID").
+    // Por isso o id é tratado como String em todo o sistema — o valor
+    // continua sendo um UUID por dentro, só que gerado e guardado como texto.
     @Id
-    @GeneratedValue
-    private UUID id;
+    @Column(length = 36)
+    private String id;
 
     @OneToOne
     @JoinColumn(nullable = false, name = "pedido_id")
@@ -31,7 +37,7 @@ public class Ficha {
     private LocalDateTime dataFechamento;
 
     @Column(name = "valor_total_fechamento")
-    private double valorTotalFechamento;
+    private Double valorTotalFechamento; // null enquanto a ficha está aberta — só recebe valor ao fechar.
 
     protected Ficha() {
         // exigido pelo JPA
@@ -41,6 +47,7 @@ public class Ficha {
         if (pedido == null) {
             throw new IllegalArgumentException("A ficha precisa estar associada a um pedido.");
         }
+        this.id = UUID.randomUUID().toString();
         this.pedido = pedido;
         this.status = StatusFicha.ABERTA;
         this.dataAbertura = LocalDateTime.now();
@@ -58,22 +65,23 @@ public class Ficha {
         this.valorTotalFechamento = pedido.calcularTotalComDesconto();
         this.status = StatusFicha.FECHADA;
         this.dataFechamento = LocalDateTime.now();
+        pedido.finalizarAtendimento();
     }
 
     public boolean isAberta() {
         return status == StatusFicha.ABERTA;
     }
 
-    public UUID getId() { return id; }
+    public String getId() { return id; }
     public Pedido getPedido() { return pedido; }
     public StatusFicha getStatus() { return status; }
     public LocalDateTime getDataAbertura() { return dataAbertura; }
     public LocalDateTime getDataFechamento() { return dataFechamento; }
-    public double getValorTotalFechamento() { return valorTotalFechamento; }
+    public double getValorTotalFechamento() { return valorTotalFechamento == null ? 0.0 : valorTotalFechamento; }
 
     @Override
     public String toString() {
         return String.format("Ficha [%s] | Pedido #%d | Status: %s",
-                id.toString().substring(0, 8), pedido.getId(), status);
+                id.substring(0, 8), pedido.getId(), status);
     }
 }

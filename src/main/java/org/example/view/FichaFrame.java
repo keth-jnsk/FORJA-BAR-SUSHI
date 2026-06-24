@@ -4,13 +4,13 @@ import org.example.controller.FichaController;
 import org.example.model.Ficha;
 import org.example.util.AppContext;
 import org.example.util.ResultadoOperacao;
+import org.example.util.ErroUtil;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Tela de fichas abertas. Permite visualizar e fechar a ficha de uma mesa.
@@ -46,7 +46,7 @@ public class FichaFrame extends JFrame {
 
         JPanel cabecalho = ComponentesUi.criarCabecalho("Fichas Abertas", ComponentesUi.ROSA_PROFUNDO);
 
-        String[] colunas = {"Mesa", "Pedido", "Abertura", "Total Atual (R$)"};
+        String[] colunas = {"Mesa", "Pedido", "Status", "Abertura", "Total Atual (R$)"};
         modeloTabela = new DefaultTableModel(colunas, 0) {
             public boolean isCellEditable(int linha, int coluna) { return false; }
         };
@@ -58,10 +58,16 @@ public class FichaFrame extends JFrame {
         JButton botaoAtualizar = ComponentesUi.criarBotaoSecundario("Atualizar");
         ComponentesUi.aoClicar(botaoAtualizar, this::carregarFichasAbertas);
 
+        JButton botaoIniciarPreparo = ComponentesUi.criarBotaoPrimario("Iniciar Preparo", ComponentesUi.ROSA_FUCSIA, Color.WHITE);
+        ComponentesUi.aoClicar(botaoIniciarPreparo, this::iniciarPreparoSelecionado);
+
+        JButton botaoMarcarPronto = ComponentesUi.criarBotaoPrimario("Marcar Pronto", ComponentesUi.ROSA_SALMAO, Color.WHITE);
+        ComponentesUi.aoClicar(botaoMarcarPronto, this::marcarProntoSelecionado);
+
         JButton botaoFechar = ComponentesUi.criarBotaoPrimario("Fechar Ficha", ComponentesUi.VERDE_NEON, Color.WHITE);
         ComponentesUi.aoClicar(botaoFechar, this::fecharFichaSelecionada);
 
-        JPanel rodape = ComponentesUi.montarBarraAcoes(botaoAtualizar, botaoFechar);
+        JPanel rodape = ComponentesUi.montarBarraAcoes(botaoAtualizar, botaoIniciarPreparo, botaoMarcarPronto, botaoFechar);
         rodape.setBorder(BorderFactory.createEmptyBorder(10, 20, 16, 20));
 
         painelPrincipal.add(cabecalho, BorderLayout.NORTH);
@@ -75,7 +81,7 @@ public class FichaFrame extends JFrame {
         try {
             fichasExibidas = fichaController.listarFichasAbertas();
         } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro ao carregar fichas: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Erro ao carregar fichas: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
             fichasExibidas = List.of();
             return;
         }
@@ -84,6 +90,7 @@ public class FichaFrame extends JFrame {
             modeloTabela.addRow(new Object[]{
                     "Mesa " + ficha.getPedido().getNumeroMesa(),
                     "#" + ficha.getPedido().getId(),
+                    ComponentesUi.formatarStatusPedido(ficha.getPedido().getStatus()),
                     ficha.getDataAbertura().format(FORMATO_DATA),
                     String.format("%.2f", ficha.getPedido().calcularTotalComDesconto())
             });
@@ -91,6 +98,47 @@ public class FichaFrame extends JFrame {
 
         if (fichasExibidas.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Não há fichas abertas no momento.");
+        }
+    }
+
+    private Ficha obterFichaSelecionada() {
+        int linha = tabelaFichas.getSelectedRow();
+        if (linha == -1) {
+            JOptionPane.showMessageDialog(this, "Selecione uma ficha na tabela.");
+            return null;
+        }
+        return fichasExibidas.get(linha);
+    }
+
+    private void iniciarPreparoSelecionado() {
+        Ficha ficha = obterFichaSelecionada();
+        if (ficha == null) {
+            return;
+        }
+        try {
+            ResultadoOperacao resultado = fichaController.iniciarPreparo(ficha.getId());
+            JOptionPane.showMessageDialog(this, resultado.getMensagem());
+            if (resultado.isSucesso()) {
+                carregarFichasAbertas();
+            }
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao iniciar preparo: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void marcarProntoSelecionado() {
+        Ficha ficha = obterFichaSelecionada();
+        if (ficha == null) {
+            return;
+        }
+        try {
+            ResultadoOperacao resultado = fichaController.marcarComoPronto(ficha.getId());
+            JOptionPane.showMessageDialog(this, resultado.getMensagem());
+            if (resultado.isSucesso()) {
+                carregarFichasAbertas();
+            }
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao marcar como pronto: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -102,7 +150,7 @@ public class FichaFrame extends JFrame {
         }
 
         Ficha ficha = fichasExibidas.get(linhaSelecionada);
-        UUID idFicha = ficha.getId();
+        String idFicha = ficha.getId();
 
         int confirmacao = JOptionPane.showConfirmDialog(this,
                 "Fechar a ficha da Mesa " + ficha.getPedido().getNumeroMesa() + "?",
@@ -118,7 +166,7 @@ public class FichaFrame extends JFrame {
                 carregarFichasAbertas();
             }
         } catch (RuntimeException e) {
-            JOptionPane.showMessageDialog(this, "Erro ao fechar ficha: " + e.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Erro ao fechar ficha: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

@@ -91,50 +91,45 @@ final class ComponentesUi {
     // Logo
     // =========================================================
 
-    /** Painel com o logo "FORJA BAR" desenhado (ícone de chama + wordmark com glow rosa neon). */
-    static JPanel criarLogo(int alturaIcone) {
+    private static Image imagemLogoOriginal;
+    private static boolean tentouCarregarLogo = false;
+
+    private static Image carregarImagemLogo() {
+        if (!tentouCarregarLogo) {
+            tentouCarregarLogo = true;
+            try {
+                java.net.URL url = ComponentesUi.class.getResource("/images/logo.png");
+                if (url != null) {
+                    imagemLogoOriginal = javax.imageio.ImageIO.read(url);
+                }
+            } catch (java.io.IOException e) {
+                imagemLogoOriginal = null;
+            }
+        }
+        return imagemLogoOriginal;
+    }
+
+    /** Painel com a logo "FORJA" (imagem, em rosa neon) + legenda "SUSHI BAR". */
+    static JPanel criarLogo(int largura) {
         JPanel painel = new JPanel();
         painel.setOpaque(false);
         painel.setLayout(new BoxLayout(painel, BoxLayout.Y_AXIS));
 
-        JComponent icone = new JComponent() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                int w = getWidth();
-                int h = getHeight();
-                int cx = w / 2;
-
-                int[] xs = {cx, cx + h / 5, cx + h / 8, cx - h / 8, cx - h / 5};
-                int[] ys = {(int) (h * 0.08), (int) (h * 0.45), (int) (h * 0.95), (int) (h * 0.95), (int) (h * 0.45)};
-
-                for (int i = 4; i >= 0; i--) {
-                    float alpha = 0.10f + (4 - i) * 0.05f;
-                    g2.setColor(new Color(255, 45, 149, (int) (alpha * 255)));
-                    g2.setStroke(new BasicStroke(i * 3f));
-                    g2.drawPolygon(xs, ys, xs.length);
-                }
-                GradientPaint gradiente = new GradientPaint(
-                        cx, 0, new Color(255, 170, 215),
-                        cx, h, new Color(255, 0, 170));
-                g2.setPaint(gradiente);
-                g2.fillPolygon(xs, ys, xs.length);
-                g2.dispose();
-            }
-
-            @Override
-            public Dimension getPreferredSize() {
-                return new Dimension(alturaIcone, alturaIcone);
-            }
-        };
-        icone.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JLabel wordmark = new JLabel("FORJA BAR");
-        wordmark.setFont(new Font("Segoe UI", Font.BOLD, Math.max(18, alturaIcone / 2)));
-        wordmark.setForeground(ROSA_NEON);
-        wordmark.setAlignmentX(Component.CENTER_ALIGNMENT);
-        wordmark.setHorizontalAlignment(SwingConstants.CENTER);
+        Image original = carregarImagemLogo();
+        JLabel rotuloImagem;
+        if (original != null) {
+            int larguraOriginal = original.getWidth(null);
+            int alturaOriginal = original.getHeight(null);
+            int altura = larguraOriginal > 0 ? Math.max(1, (int) (largura * ((double) alturaOriginal / larguraOriginal))) : largura;
+            Image escalada = original.getScaledInstance(largura, altura, Image.SCALE_SMOOTH);
+            rotuloImagem = new JLabel(new ImageIcon(escalada));
+        } else {
+            rotuloImagem = new JLabel("FORJA");
+            rotuloImagem.setFont(new Font("Segoe UI", Font.BOLD, Math.max(18, largura / 4)));
+            rotuloImagem.setForeground(ROSA_NEON);
+        }
+        rotuloImagem.setAlignmentX(Component.CENTER_ALIGNMENT);
+        rotuloImagem.setHorizontalAlignment(SwingConstants.CENTER);
 
         JLabel sublinha = new JLabel("S U S H I   B A R");
         sublinha.setFont(new Font("Segoe UI", Font.PLAIN, 11));
@@ -142,9 +137,8 @@ final class ComponentesUi {
         sublinha.setAlignmentX(Component.CENTER_ALIGNMENT);
         sublinha.setHorizontalAlignment(SwingConstants.CENTER);
 
-        painel.add(icone);
-        painel.add(Box.createVerticalStrut(6));
-        painel.add(wordmark);
+        painel.add(rotuloImagem);
+        painel.add(Box.createVerticalStrut(4));
         painel.add(sublinha);
         return painel;
     }
@@ -159,6 +153,54 @@ final class ComponentesUi {
         return campo;
     }
 
+    /** Campo de texto que só aceita dígitos (0-9) — usado para quantidades/IDs. */
+    static JTextField criarCampoNumericoInteiro() {
+        JTextField campo = criarCampoTexto();
+        aplicarFiltroNumerico(campo, false);
+        return campo;
+    }
+
+    /** Campo de texto que só aceita dígitos e um separador decimal (, ou .) — usado para preços. */
+    static JTextField criarCampoNumericoDecimal() {
+        JTextField campo = criarCampoTexto();
+        aplicarFiltroNumerico(campo, true);
+        return campo;
+    }
+
+    private static void aplicarFiltroNumerico(JTextField campo, boolean permiteDecimal) {
+        ((javax.swing.text.AbstractDocument) campo.getDocument()).setDocumentFilter(new javax.swing.text.DocumentFilter() {
+            @Override
+            public void insertString(FilterBypass fb, int offset, String string, javax.swing.text.AttributeSet attr)
+                    throws javax.swing.text.BadLocationException {
+                if (textoValido(string)) {
+                    super.insertString(fb, offset, string, attr);
+                }
+            }
+
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String text, javax.swing.text.AttributeSet attrs)
+                    throws javax.swing.text.BadLocationException {
+                if (textoValido(text)) {
+                    super.replace(fb, offset, length, text, attrs);
+                }
+            }
+
+            private boolean textoValido(String texto) {
+                if (texto == null || texto.isEmpty()) {
+                    return true; // apagar/selecionar vazio é sempre permitido
+                }
+                for (char ch : texto.toCharArray()) {
+                    boolean digitoValido = Character.isDigit(ch);
+                    boolean separadorValido = permiteDecimal && (ch == ',' || ch == '.');
+                    if (!digitoValido && !separadorValido) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        });
+    }
+
     static JPasswordField criarCampoSenha() {
         JPasswordField campo = new CampoSenhaArredondado();
         estilizarCampo(campo);
@@ -167,7 +209,9 @@ final class ComponentesUi {
 
     static void estilizarCampo(JTextField campo) {
         campo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        campo.setPreferredSize(new Dimension(320, 38));
         campo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        campo.setAlignmentX(Component.LEFT_ALIGNMENT);
         campo.setOpaque(false);
         campo.setBackground(COR_CAMPO);
         campo.setForeground(COR_TEXTO_CLARO);
@@ -241,7 +285,9 @@ final class ComponentesUi {
     static JComboBox<String> criarComboBox(String... opcoes) {
         JComboBox<String> combo = new JComboBox<>(opcoes);
         combo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        combo.setPreferredSize(new Dimension(320, 38));
         combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        combo.setAlignmentX(Component.LEFT_ALIGNMENT);
         combo.setBackground(COR_CAMPO);
         combo.setForeground(COR_TEXTO_CLARO);
         combo.setBorder(BorderFactory.createCompoundBorder(
@@ -381,12 +427,13 @@ final class ComponentesUi {
                 g2.dispose();
             }
         };
+        cabecalho.setLayout(new BorderLayout());
         cabecalho.setOpaque(false);
         cabecalho.setBorder(BorderFactory.createEmptyBorder(16, 22, 16, 22));
         JLabel rotulo = new JLabel(titulo);
         rotulo.setFont(new Font("Segoe UI", Font.BOLD, 19));
         rotulo.setForeground(modoClaro ? new Color(40, 20, 35) : Color.WHITE);
-        cabecalho.add(rotulo);
+        cabecalho.add(rotulo, BorderLayout.WEST);
         return cabecalho;
     }
 
@@ -396,6 +443,18 @@ final class ComponentesUi {
         int g = (int) (cor.getGreen() * intensidade + base.getGreen() * (1 - intensidade));
         int b = (int) (cor.getBlue() * intensidade + base.getBlue() * (1 - intensidade));
         return new Color(Math.min(r, 255), Math.min(g, 255), Math.min(b, 255));
+    }
+
+    /** Texto amigável para o status do pedido, usado em Fichas e Relatórios. */
+    static String formatarStatusPedido(org.example.model.Pedido.StatusPedido status) {
+        return switch (status) {
+            case ABERTO -> "Aberto";
+            case CONFIRMADO -> "Confirmado — aguardando preparo";
+            case EM_PREPARO -> "Em preparo";
+            case PRONTO -> "Pronto";
+            case ENTREGUE -> "Entregue";
+            case CANCELADO -> "Cancelado";
+        };
     }
 
     // =========================================================

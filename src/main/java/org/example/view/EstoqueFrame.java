@@ -3,6 +3,7 @@ package org.example.view;
 import org.example.controller.EstoqueController;
 import org.example.util.AppContext;
 import org.example.util.ResultadoOperacao;
+import org.example.util.ErroUtil;
 
 import javax.swing.*;
 import java.awt.*;
@@ -24,7 +25,7 @@ public class EstoqueFrame extends JFrame {
     private void montarTela() {
         setTitle("Forja Bar — Cadastrar Novo Produto");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setMinimumSize(new Dimension(420, 420));
+        setMinimumSize(new Dimension(440, 460));
         setLocationRelativeTo(null);
 
         JPanel painelPrincipal = new JPanel(new BorderLayout());
@@ -33,35 +34,14 @@ public class EstoqueFrame extends JFrame {
 
         JPanel cabecalho = ComponentesUi.criarCabecalho("Cadastrar Novo Produto", ComponentesUi.VERDE_NEON);
 
-        JPanel painelFormulario = new JPanel();
-        painelFormulario.setLayout(new BoxLayout(painelFormulario, BoxLayout.Y_AXIS));
+        JPanel painelFormulario = new JPanel(new GridBagLayout());
         painelFormulario.setBackground(ComponentesUi.COR_PAINEL);
         painelFormulario.setBorder(BorderFactory.createEmptyBorder(24, 32, 24, 32));
 
         campoNome = ComponentesUi.criarCampoTexto();
-        campoQuantidade = ComponentesUi.criarCampoTexto();
-        campoPreco = ComponentesUi.criarCampoTexto();
+        campoQuantidade = ComponentesUi.criarCampoNumericoInteiro();
+        campoPreco = ComponentesUi.criarCampoNumericoDecimal();
         comboTipo = ComponentesUi.criarComboBox("BEBIDA", "COMIDAS");
-
-        painelFormulario.add(ComponentesUi.criarRotuloCampo("Nome do Produto"));
-        painelFormulario.add(Box.createVerticalStrut(4));
-        painelFormulario.add(campoNome);
-        painelFormulario.add(Box.createVerticalStrut(14));
-
-        painelFormulario.add(ComponentesUi.criarRotuloCampo("Quantidade em Estoque"));
-        painelFormulario.add(Box.createVerticalStrut(4));
-        painelFormulario.add(campoQuantidade);
-        painelFormulario.add(Box.createVerticalStrut(14));
-
-        painelFormulario.add(ComponentesUi.criarRotuloCampo("Preço (R$)"));
-        painelFormulario.add(Box.createVerticalStrut(4));
-        painelFormulario.add(campoPreco);
-        painelFormulario.add(Box.createVerticalStrut(14));
-
-        painelFormulario.add(ComponentesUi.criarRotuloCampo("Tipo do Produto"));
-        painelFormulario.add(Box.createVerticalStrut(4));
-        painelFormulario.add(comboTipo);
-        painelFormulario.add(Box.createVerticalStrut(24));
 
         JButton botaoVoltar = ComponentesUi.criarBotaoSecundario("Voltar ao Menu");
         botaoVoltar.addActionListener(e -> dispose());
@@ -70,8 +50,28 @@ public class EstoqueFrame extends JFrame {
         ComponentesUi.aoClicar(botaoSalvar, this::salvarProduto);
 
         JPanel painelBotoes = ComponentesUi.montarBarraAcoes(botaoVoltar, botaoSalvar);
-        painelBotoes.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        painelFormulario.add(painelBotoes);
+
+        GridBagConstraints c = new GridBagConstraints();
+        c.gridx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1.0;
+        c.anchor = GridBagConstraints.WEST;
+
+        int linha = 0;
+        c.gridy = linha++; c.insets = new Insets(0, 0, 4, 0); painelFormulario.add(ComponentesUi.criarRotuloCampo("Nome do Produto"), c);
+        c.gridy = linha++; c.insets = new Insets(0, 0, 16, 0); painelFormulario.add(campoNome, c);
+
+        c.gridy = linha++; c.insets = new Insets(0, 0, 4, 0); painelFormulario.add(ComponentesUi.criarRotuloCampo("Quantidade em Estoque"), c);
+        c.gridy = linha++; c.insets = new Insets(0, 0, 16, 0); painelFormulario.add(campoQuantidade, c);
+
+        c.gridy = linha++; c.insets = new Insets(0, 0, 4, 0); painelFormulario.add(ComponentesUi.criarRotuloCampo("Preço (R$)"), c);
+        c.gridy = linha++; c.insets = new Insets(0, 0, 16, 0); painelFormulario.add(campoPreco, c);
+
+        c.gridy = linha++; c.insets = new Insets(0, 0, 4, 0); painelFormulario.add(ComponentesUi.criarRotuloCampo("Tipo do Produto"), c);
+        c.gridy = linha++; c.insets = new Insets(0, 0, 26, 0); painelFormulario.add(comboTipo, c);
+
+        c.gridy = linha++; c.insets = new Insets(0, 0, 0, 0); c.weighty = 1.0; c.anchor = GridBagConstraints.SOUTH;
+        painelFormulario.add(painelBotoes, c);
 
         painelPrincipal.add(cabecalho, BorderLayout.NORTH);
         painelPrincipal.add(painelFormulario, BorderLayout.CENTER);
@@ -84,16 +84,20 @@ public class EstoqueFrame extends JFrame {
         String precoTexto = campoPreco.getText();
         String tipo = (String) comboTipo.getSelectedItem();
 
-        ResultadoOperacao resultado = estoqueController.cadastrarProduto(nome, precoTexto, quantidadeTexto, tipo);
+        try {
+            ResultadoOperacao resultado = estoqueController.cadastrarProduto(nome, precoTexto, quantidadeTexto, tipo);
 
-        if (!resultado.isSucesso()) {
-            JOptionPane.showMessageDialog(this, resultado.getMensagem(), "Não foi possível salvar", JOptionPane.WARNING_MESSAGE);
-            return;
+            if (!resultado.isSucesso()) {
+                JOptionPane.showMessageDialog(this, resultado.getMensagem(), "Não foi possível salvar", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            JOptionPane.showMessageDialog(this, resultado.getMensagem());
+            campoNome.setText("");
+            campoQuantidade.setText("");
+            campoPreco.setText("");
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao cadastrar produto: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
         }
-
-        JOptionPane.showMessageDialog(this, resultado.getMensagem());
-        campoNome.setText("");
-        campoQuantidade.setText("");
-        campoPreco.setText("");
     }
 }

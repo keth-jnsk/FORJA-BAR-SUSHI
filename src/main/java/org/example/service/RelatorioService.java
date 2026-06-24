@@ -61,6 +61,6 @@ public class RelatorioService {
                 .map(Map.Entry::getKey)
                 .orElse(null);
 
-        return new RelatorioDoDia(pedidos, totalGeral, totalItensVendidos, produtoMaisVendido);
+        return new RelatorioDoDia(pedidos, totalGeral, totalItensVendidos, produtoMaisVendido, contagemProdutos);
     }
 }

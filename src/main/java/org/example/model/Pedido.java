@@ -7,11 +7,16 @@ import java.util.Collections;
 import java.util.List;
 
 @Entity
-@Table
+@Table(name = "pedidos")
 public class Pedido {
 
     public enum StatusPedido {
-        ABERTO, EM_PREPARO, PRONTO, ENTREGUE, CANCELADO
+        ABERTO,      // ainda sendo montado (em memória, antes de confirmar)
+        CONFIRMADO,  // confirmado e com ficha aberta — preparo ainda NÃO iniciado
+        EM_PREPARO,  // funcionário acionou o início do preparo
+        PRONTO,      // preparo concluído, aguardando entrega/fechamento
+        ENTREGUE,    // entregue / ficha fechada
+        CANCELADO
     }
 
     public static final double VALOR_MINIMO_PARA_DESCONTO = 100.0;
@@ -75,15 +80,6 @@ public class Pedido {
         return calcularTotal() > VALOR_MINIMO_PARA_DESCONTO;
     }
 
-    public void avancarStatus() {
-        switch (status) {
-            case ABERTO -> status = StatusPedido.EM_PREPARO;
-            case EM_PREPARO -> status = StatusPedido.PRONTO;
-            case PRONTO -> status = StatusPedido.ENTREGUE;
-            default -> throw new IllegalStateException("Pedido já finalizado ou cancelado.");
-        }
-    }
-
     public void confirmar() {
         if (itens.isEmpty()) {
             throw new IllegalStateException("Não é possível confirmar um pedido sem itens.");
@@ -91,7 +87,38 @@ public class Pedido {
         if (status != StatusPedido.ABERTO) {
             throw new IllegalStateException("Só é possível confirmar um pedido em status ABERTO.");
         }
+        status = StatusPedido.CONFIRMADO;
+    }
+
+    /** Ação do funcionário: avisa que a cozinha começou a preparar o pedido. */
+    public void iniciarPreparo() {
+        if (status != StatusPedido.CONFIRMADO) {
+            throw new IllegalStateException(
+                    "Só é possível iniciar o preparo de um pedido confirmado (status atual: " + status + ").");
+        }
         status = StatusPedido.EM_PREPARO;
+    }
+
+    /** Ação do funcionário: avisa que o pedido está pronto para entrega/retirada. */
+    public void marcarComoPronto() {
+        if (status != StatusPedido.EM_PREPARO) {
+            throw new IllegalStateException(
+                    "Só é possível marcar como pronto um pedido em preparo (status atual: " + status + ").");
+        }
+        status = StatusPedido.PRONTO;
+    }
+
+    /**
+     * Encerra o atendimento (chamado ao fechar a ficha do pedido). Diferente
+     * das transições acima, esta não exige um status específico anterior —
+     * fechar a ficha é a confirmação final de que o atendimento terminou,
+     * independente de o funcionário ter marcado cada etapa intermediária.
+     */
+    public void finalizarAtendimento() {
+        if (status == StatusPedido.CANCELADO) {
+            throw new IllegalStateException("Não é possível finalizar um pedido cancelado.");
+        }
+        status = StatusPedido.ENTREGUE;
     }
 
     public void cancelar() {

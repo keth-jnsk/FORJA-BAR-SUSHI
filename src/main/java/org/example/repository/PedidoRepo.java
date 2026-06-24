@@ -25,7 +25,10 @@ public class PedidoRepo {
     public Pedido buscarPorId(int id) {
         EntityManager em = JpaUtil.getEntityManager();
         try {
-            return em.find(Pedido.class, id);
+            List<Pedido> resultado = em.createQuery(
+                    "SELECT DISTINCT p FROM Pedido p LEFT JOIN FETCH p.itens WHERE p.id = :id", Pedido.class
+            ).setParameter("id", id).getResultList();
+            return resultado.isEmpty() ? null : resultado.get(0);
         } finally {
             em.close();
         }
@@ -34,7 +37,9 @@ public class PedidoRepo {
     public List<Pedido> buscarTodos() {
         EntityManager em = JpaUtil.getEntityManager();
         try {
-            return em.createQuery("SELECT p FROM Pedido p ORDER BY p.id ASC", Pedido.class).getResultList();
+            return em.createQuery(
+                    "SELECT DISTINCT p FROM Pedido p LEFT JOIN FETCH p.itens ORDER BY p.id ASC", Pedido.class
+            ).getResultList();
         } finally {
             em.close();
         }

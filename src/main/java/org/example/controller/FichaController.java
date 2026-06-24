@@ -5,7 +5,6 @@ import org.example.service.FichaService;
 import org.example.util.ResultadoOperacao;
 
 import java.util.List;
-import java.util.UUID;
 
 public class FichaController {
 
@@ -23,10 +22,24 @@ public class FichaController {
         return fichaService.listarTodas();
     }
 
-    public ResultadoOperacao fecharFicha(UUID idFicha) {
+    public ResultadoOperacao fecharFicha(String idFicha) {
         if (idFicha == null) {
             return ResultadoOperacao.erro("Selecione uma ficha para fechar.");
         }
         return fichaService.fecharFicha(idFicha);
+    }
+
+    public ResultadoOperacao iniciarPreparo(String idFicha) {
+        if (idFicha == null) {
+            return ResultadoOperacao.erro("Selecione uma ficha.");
+        }
+        return fichaService.iniciarPreparo(idFicha);
+    }
+
+    public ResultadoOperacao marcarComoPronto(String idFicha) {
+        if (idFicha == null) {
+            return ResultadoOperacao.erro("Selecione uma ficha.");
+        }
+        return fichaService.marcarComoPronto(idFicha);
     }
 }

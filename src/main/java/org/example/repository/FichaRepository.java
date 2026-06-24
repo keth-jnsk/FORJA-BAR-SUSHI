@@ -5,7 +5,6 @@ import org.example.model.Ficha;
 import org.example.util.JpaUtil;
 
 import java.util.List;
-import java.util.UUID;
 
 public class FichaRepository {
 
@@ -23,10 +22,14 @@ public class FichaRepository {
         }
     }
 
-    public Ficha buscarPorId(UUID id) {
+    public Ficha buscarPorId(String id) {
         EntityManager em = JpaUtil.getEntityManager();
         try {
-            return em.find(Ficha.class, id);
+            List<Ficha> resultado = em.createQuery(
+                    "SELECT DISTINCT f FROM Ficha f LEFT JOIN FETCH f.pedido p LEFT JOIN FETCH p.itens WHERE f.id = :id",
+                    Ficha.class
+            ).setParameter("id", id).getResultList();
+            return resultado.isEmpty() ? null : resultado.get(0);
         } finally {
             em.close();
         }
@@ -35,7 +38,10 @@ public class FichaRepository {
     public List<Ficha> listarTodas() {
         EntityManager em = JpaUtil.getEntityManager();
         try {
-            return em.createQuery("SELECT f FROM Ficha f ORDER BY f.dataAbertura ASC", Ficha.class).getResultList();
+            return em.createQuery(
+                    "SELECT DISTINCT f FROM Ficha f LEFT JOIN FETCH f.pedido p LEFT JOIN FETCH p.itens ORDER BY f.dataAbertura ASC",
+                    Ficha.class
+            ).getResultList();
         } finally {
             em.close();
         }
@@ -45,7 +51,7 @@ public class FichaRepository {
         EntityManager em = JpaUtil.getEntityManager();
         try {
             return em.createQuery(
-                    "SELECT f FROM Ficha f WHERE f.status = :status ORDER BY f.dataAbertura ASC",
+                    "SELECT DISTINCT f FROM Ficha f LEFT JOIN FETCH f.pedido p LEFT JOIN FETCH p.itens WHERE f.status = :status ORDER BY f.dataAbertura ASC",
                     Ficha.class
             ).setParameter("status", Ficha.StatusFicha.ABERTA).getResultList();
         } finally {

@@ -79,6 +79,10 @@ public class PedidoService {
         return pedidoRepo.buscarPorId(id);
     }
 
+    public void atualizar(Pedido pedido) {
+        pedidoRepo.atualizar(pedido);
+    }
+
     public List<Pedido> listarTodos() {
         return pedidoRepo.buscarTodos();
     }

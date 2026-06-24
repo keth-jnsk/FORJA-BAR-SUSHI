@@ -29,6 +29,22 @@ public class LoginController {
         return ResultadoLogin.sucesso(usuario.get());
     }
 
+    /** Conclui a troca obrigatória de senha (novo usuário ou senha redefinida pelo admin). */
+    public ResultadoOperacao confirmarNovaSenha(int idUsuario, String novaSenha, String confirmacaoSenha) {
+        if (novaSenha == null || novaSenha.length() < 4) {
+            return ResultadoOperacao.erro("A nova senha deve ter ao menos 4 caracteres.");
+        }
+        if (!novaSenha.equals(confirmacaoSenha)) {
+            return ResultadoOperacao.erro("As senhas digitadas não coincidem.");
+        }
+        try {
+            authService.confirmarTrocaDeSenha(idUsuario, novaSenha);
+            return ResultadoOperacao.sucesso("Senha definida com sucesso!");
+        } catch (RuntimeException e) {
+            return ResultadoOperacao.erro(e.getMessage());
+        }
+    }
+
     /** Resultado específico de login: ou devolve o usuário autenticado, ou uma mensagem de erro. */
     public static final class ResultadoLogin {
         private final boolean sucesso;

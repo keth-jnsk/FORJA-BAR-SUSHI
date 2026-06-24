@@ -3,6 +3,8 @@ package org.example.view;
 import org.example.controller.LoginController;
 import org.example.model.Usuario;
 import org.example.util.AppContext;
+import org.example.util.ResultadoOperacao;
+import org.example.util.ErroUtil;
 
 import javax.swing.*;
 import java.awt.*;
@@ -46,7 +48,7 @@ public class LoginFrame extends JFrame {
         c.weightx = 1.0;
         c.insets = new Insets(0, 0, 0, 0);
 
-        JPanel logo = ComponentesUi.criarLogo(60);
+        JPanel logo = ComponentesUi.criarLogo(230);
 
         JLabel rotuloSubtitulo = new JLabel("Acesse o sistema", SwingConstants.CENTER);
         rotuloSubtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 13));
@@ -97,7 +99,13 @@ public class LoginFrame extends JFrame {
         String login = campoLogin.getText();
         String senha = new String(campoSenha.getPassword());
 
-        LoginController.ResultadoLogin resultado = loginController.autenticar(login, senha);
+        LoginController.ResultadoLogin resultado;
+        try {
+            resultado = loginController.autenticar(login, senha);
+        } catch (RuntimeException e) {
+            JOptionPane.showMessageDialog(this, "Erro ao acessar o banco de dados: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
         if (!resultado.isSucesso()) {
             JOptionPane.showMessageDialog(this, resultado.getMensagemErro(), "Erro ao entrar", JOptionPane.ERROR_MESSAGE);
@@ -106,9 +114,65 @@ public class LoginFrame extends JFrame {
         }
 
         Usuario usuario = resultado.getUsuario();
+
+        if (usuario.isDeveRedefinirSenha()) {
+            boolean trocou = solicitarNovaSenhaObrigatoria(usuario);
+            if (!trocou) {
+                campoSenha.setText("");
+                return; // permanece na tela de login
+            }
+        }
+
         JOptionPane.showMessageDialog(this, "Bem-vindo, " + usuario.getLogin() + "!");
         new MainFrame(usuario).setVisible(true);
         dispose();
+    }
+
+    /**
+     * Exibe um diálogo obrigatório de troca de senha (conta nova ou senha
+     * redefinida pelo administrador). Retorna false se o usuário cancelar
+     * — nesse caso ele não pode entrar no sistema com a senha provisória.
+     */
+    private boolean solicitarNovaSenhaObrigatoria(Usuario usuario) {
+        JLabel aviso = new JLabel("É necessário definir uma nova senha para continuar.");
+        aviso.setFont(new Font("Segoe UI", Font.BOLD, 12));
+
+        JPasswordField campoNova = new JPasswordField();
+        JPasswordField campoConfirmar = new JPasswordField();
+
+        JPanel painel = new JPanel(new GridLayout(3, 1, 4, 8));
+        JPanel linha1 = new JPanel(new BorderLayout(8, 0));
+        linha1.add(new JLabel("Nova senha:"), BorderLayout.WEST);
+        linha1.add(campoNova, BorderLayout.CENTER);
+        JPanel linha2 = new JPanel(new BorderLayout(8, 0));
+        linha2.add(new JLabel("Confirmar:"), BorderLayout.WEST);
+        linha2.add(campoConfirmar, BorderLayout.CENTER);
+        painel.add(aviso);
+        painel.add(linha1);
+        painel.add(linha2);
+
+        while (true) {
+            int opcao = JOptionPane.showConfirmDialog(this, painel, "Trocar senha obrigatória",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (opcao != JOptionPane.OK_OPTION) {
+                return false;
+            }
+
+            String novaSenha = new String(campoNova.getPassword());
+            String confirmacao = new String(campoConfirmar.getPassword());
+
+            try {
+                ResultadoOperacao resultado = loginController.confirmarNovaSenha(usuario.getId(), novaSenha, confirmacao);
+                if (!resultado.isSucesso()) {
+                    JOptionPane.showMessageDialog(this, resultado.getMensagem(), "Não foi possível trocar a senha", JOptionPane.WARNING_MESSAGE);
+                    continue;
+                }
+                JOptionPane.showMessageDialog(this, resultado.getMensagem());
+                return true;
+            } catch (RuntimeException e) {
+                JOptionPane.showMessageDialog(this, "Erro ao trocar senha: " + ErroUtil.causaRaiz(e), "Erro", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
     public static void main(String[] args) {
